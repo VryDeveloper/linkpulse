@@ -9,7 +9,13 @@ import { NextResponse, type NextRequest } from "next/server";
  * - Sem ADMIN_PASSWORD em desenvolvimento: painel aberto.
  */
 export function isProtectedPath(pathname: string): boolean {
-  return pathname === "/" || pathname.startsWith("/links") || pathname.startsWith("/api/links");
+  return (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname.startsWith("/links/") ||
+    pathname === "/api/links" ||
+    pathname.startsWith("/api/links/")
+  );
 }
 
 /** Comparação em tempo constante, para não vazar a senha por diferença de tempo de resposta. */

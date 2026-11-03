@@ -1,22 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { Circle, CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { LatLngBoundsExpression } from "leaflet";
 import type { MapPoint } from "@/lib/stats";
 
 function FitBounds({ points }: { points: MapPoint[] }) {
   const map = useMap();
+  const fitted = useRef(false);
   useEffect(() => {
-    if (points.length === 0) return;
+    if (points.length === 0 || fitted.current) return;
+    fitted.current = true;
     if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lng], 10);
+      map.setView([points[0].lat, points[0].lng], 5);
       return;
     }
     const bounds: LatLngBoundsExpression = points.map((p) => [p.lat, p.lng]);
-    map.fitBounds(bounds, { padding: [32, 32], maxZoom: 11 });
+    map.fitBounds(bounds, { padding: [32, 32], maxZoom: 9 });
   }, [map, points]);
   return null;
+}
+
+/** Leva o mapa até o clique mais recente (usado na demo ao vivo). */
+function FlyTo({ focus }: { focus?: MapFocus | null }) {
+  const map = useMap();
+  useEffect(() => {
+    // Zoom de "continente": mostra o clique novo sem perder de vista os anteriores.
+    if (focus) map.flyTo([focus.lat, focus.lng], 4, { duration: 1.2 });
+  }, [map, focus]);
+  return null;
+}
+
+export interface MapFocus {
+  key: string;
+  lat: number;
+  lng: number;
 }
 
 const darkQuery = "(prefers-color-scheme: dark)";
@@ -35,7 +53,7 @@ function useDarkMode() {
   );
 }
 
-export default function ClickMap({ points }: { points: MapPoint[] }) {
+export default function ClickMap({ points, focus }: { points: MapPoint[]; focus?: MapFocus | null }) {
   const dark = useDarkMode();
   const max = useMemo(() => Math.max(1, ...points.map((p) => p.count)), [points]);
   const colors = dark ? { ip: "#3987e5", gps: "#d95926", ring: "#1a1a19" } : { ip: "#2a78d6", gps: "#eb6834", ring: "#fcfcfb" };
@@ -50,6 +68,17 @@ export default function ClickMap({ points }: { points: MapPoint[] }) {
         url={`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`}
       />
       <FitBounds points={points} />
+      <FlyTo focus={focus} />
+      {focus && (
+        <CircleMarker
+          key={focus.key}
+          center={[focus.lat, focus.lng]}
+          radius={18}
+          className="map-pulse"
+          interactive={false}
+          pathOptions={{ color: colors.gps, weight: 2, fillOpacity: 0 }}
+        />
+      )}
       {points.map((p) => (
         <span key={`${p.precise}-${p.lat}-${p.lng}`}>
           {p.precise && p.accuracy && p.accuracy < 5000 && (

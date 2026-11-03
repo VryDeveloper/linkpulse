@@ -6,6 +6,16 @@ O foco do projeto é **geolocalização**: precisão de cidade por IP em todo cl
 
 ![Dashboard](docs/home.png)
 
+## Demo ao vivo
+
+A página **`/demo`** é pública e foi feita para quem visita o portfólio:
+
+1. Mostra um QR code e o link curto `/ao-vivo`
+2. Quem abre no celular passa pela página de consentimento de GPS e cai em **"Seu clique"**, que mostra tudo o que foi capturado: IP, cidade, operadora, aparelho, sistema e navegador
+3. Quem está com a `/demo` aberta vê o clique chegar **em tempo real**: o mapa voa até o local com um pulso, a lista destaca a nova linha e os contadores sobem
+
+A página consulta `/api/demo` a cada 4 segundos (polling, pausado com a aba em segundo plano). Na versão pública o IP é mascarado (`177.37.x.x`), as coordenadas são arredondadas para ~1 km e user agent, CEP e referrer completo não saem do servidor (garantido por teste).
+
 ## Funcionalidades
 
 - **Encurtar links** com slug aleatório (sem caracteres ambíguos) ou alias personalizado
@@ -72,7 +82,7 @@ Pré-requisito: **Node 20.12+**. Você não precisa instalar Postgres nem Docker
 ```bash
 npm install
 npm run setup   # cria o .env, sobe o Postgres local, aplica as migrations e insere dados de demo
-npm run dev     # http://localhost:3000
+npm run dev     # http://localhost:3000 (demo) e /dashboard (painel)
 ```
 
 O banco local é o **Postgres embutido do Prisma** (`prisma dev`, baseado em PGlite). É um Postgres de verdade rodando em segundo plano, sem instalação. O `npm run dev` sobe esse banco automaticamente, e o `npm run setup` pode ser rodado de novo sem apagar seus dados.
@@ -101,7 +111,7 @@ Na Vercel, os headers `x-vercel-ip-*` trazem país, cidade, CEP, fuso e coordena
 
 ## Segurança
 
-- **Painel protegido por senha** (`src/proxy.ts`, HTTP Basic Auth). Os links curtos e a página de consentimento continuam públicos. Sem `ADMIN_PASSWORD` em produção, o painel fica bloqueado (falha segura)
+- **Painel protegido por senha** (`/dashboard` e `/links/*`, via `src/proxy.ts` com HTTP Basic Auth). Os links curtos, a página de consentimento e a `/demo` continuam públicos. Sem `ADMIN_PASSWORD` em produção, o painel fica bloqueado (falha segura)
 - Só URLs `http(s)` podem ser encurtadas (bloqueia `javascript:` e afins)
 - O endpoint de GPS aceita um único envio por clique, em até 5 minutos
 
@@ -112,6 +122,7 @@ Na Vercel, os headers `x-vercel-ip-*` trazem país, cidade, CEP, fuso e coordena
 | `POST` | `/api/links` | `{ url, slug?, title?, preciseGeo? }` → cria link (`409` se o alias existir) |
 | `GET` | `/api/links` | Lista links com total de cliques |
 | `GET` | `/:slug` | Registra o clique e redireciona |
+| `GET` | `/api/demo` | Snapshot público da demo (contadores, pontos do mapa e cliques mascarados) |
 | `POST` | `/api/clicks/:id/precise` | `{ status: "granted", latitude, longitude, accuracy }` ou `{ status: "denied" \| "timeout" \| "unavailable" }` |
 
 ## Próximos passos

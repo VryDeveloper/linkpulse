@@ -32,7 +32,7 @@ export default async function LinkAnalytics({
 
   return (
     <main className="mx-auto max-w-6xl space-y-5 px-4 py-8">
-      <Link href="/" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text)]">
+      <Link href="/dashboard" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text)]">
         ← Todos os links
       </Link>
 

@@ -4,9 +4,8 @@ import { checkBasicAuth, isProtectedPath, safeEqual } from "@/proxy";
 const basic = (user: string, pass: string) => `Basic ${btoa(`${user}:${pass}`)}`;
 
 describe("isProtectedPath", () => {
-  it.each(["/", "/links/abc", "/api/links"])("%s é protegido", (p) => expect(isProtectedPath(p)).toBe(true));
-  it.each(["/abc123", "/go/xyz", "/api/clicks/x/precise", "/linkedin-post"])("%s é público", (p) => {
-    // "/linkedin-post" começa com "/links"? Não: "/linke…" ≠ "/links".
+  it.each(["/dashboard", "/links/abc", "/api/links"])("%s é protegido", (p) => expect(isProtectedPath(p)).toBe(true));
+  it.each(["/", "/demo", "/demo/seu-clique", "/api/demo", "/abc123", "/go/xyz", "/api/clicks/x/precise", "/linksz", "/dashboardx"])("%s é público", (p) => {
     expect(isProtectedPath(p)).toBe(false);
   });
 });

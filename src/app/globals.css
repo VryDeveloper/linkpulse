@@ -59,3 +59,26 @@ body {
 .clicks-chart .clicks-chart-bar path,
 .clicks-chart .recharts-bar-rectangle path { fill: var(--series-ip); }
 .clicks-chart .recharts-tooltip-cursor { fill: var(--surface-2); }
+
+/* Demo ao vivo: pulso no clique mais recente (mapa) e destaque na lista. */
+@keyframes map-pulse {
+  0% { stroke-opacity: 1; stroke-width: 3; }
+  100% { stroke-opacity: 0; stroke-width: 14; }
+}
+.map-pulse { animation: map-pulse 1.4s ease-out infinite; }
+
+@keyframes row-highlight {
+  from { background: color-mix(in srgb, var(--series-gps) 18%, transparent); }
+  to { background: transparent; }
+}
+.row-new { animation: row-highlight 4s ease-out; }
+
+@keyframes live-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.live-dot { animation: live-dot 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .map-pulse, .row-new, .live-dot { animation: none; }
+}

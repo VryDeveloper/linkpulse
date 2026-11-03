@@ -2,17 +2,18 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createClick, enrichClickGeo } from "@/lib/clicks";
 import { isPrefetch } from "@/lib/user-agent";
+import { destinationFor } from "@/lib/demo";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  const link = await prisma.link.findUnique({ where: { slug }, select: { id: true, url: true, preciseGeo: true } });
+  const link = await prisma.link.findUnique({ where: { slug }, select: { id: true, slug: true, url: true, preciseGeo: true } });
 
   if (!link) {
-    return NextResponse.redirect(new URL(`/?notFound=${encodeURIComponent(slug)}`, req.url), 302);
+    return NextResponse.redirect(new URL(`/dashboard?notFound=${encodeURIComponent(slug)}`, req.url), 302);
   }
 
   const headers = new Headers(req.headers);
-  let target = link.url;
+  let target = destinationFor(link, null, req.url);
 
   // Pré-carregamento do navegador: redireciona sem contar (o clique real vem depois).
   if (isPrefetch(headers)) {
@@ -24,7 +25,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
     // Geolocalização por IP acontece depois da resposta: o usuário não espera pela API de geo.
     after(() => enrichClickGeo(click.id, headers, click.ip, click.lookupSelf).catch((err) => console.error("geo enrich failed", err)));
 
-    if (link.preciseGeo) target = new URL(`/go/${click.id}`, req.url).toString();
+    target = link.preciseGeo
+      ? new URL(`/go/${click.id}`, req.url).toString()
+      : destinationFor(link, click.id, req.url);
   } catch (err) {
     // Analytics nunca pode quebrar o redirecionamento.
     console.error("click tracking failed", err);
