@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clusterPoints, fillDays, flag } from "@/lib/stats";
+import { clusterPoints, fillDays } from "@/lib/stats";
 import { isValidCustomSlug } from "@/lib/slug";
 import { createLinkSchema } from "@/lib/validation";
 
@@ -25,13 +25,6 @@ describe("clusterPoints", () => {
     ]);
     expect(out).toHaveLength(2);
     expect(out[0]).toMatchObject({ count: 2, precise: false });
-  });
-});
-
-describe("flag", () => {
-  it("converte código de país em emoji", () => {
-    expect(flag("BR")).toBe("🇧🇷");
-    expect(flag("??")).toBe("");
   });
 });
 

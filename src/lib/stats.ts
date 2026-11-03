@@ -9,6 +9,8 @@ export type RangeKey = keyof typeof RANGES;
 export interface Breakdown {
   label: string;
   count: number;
+  /** Quando presente, a UI mostra a bandeira do país ao lado do rótulo. */
+  countryCode?: string | null;
 }
 
 export interface MapPoint {
@@ -128,11 +130,13 @@ export async function getLinkStats(linkId: string, range: RangeKey) {
     preciseCount,
     timeseries: fillDays(perDay, days),
     countries: countries.map((c) => ({
-      label: c.key ? `${flag(c.key)} ${countryName(c.key) ?? c.key}` : "Desconhecido",
+      label: c.key ? (countryName(c.key) ?? c.key) : "Desconhecido",
+      countryCode: c.key,
       count: c.count,
     })),
     cities: cities.map((c) => ({
-      label: `${c.countryCode ? flag(c.countryCode) + " " : ""}${c.city}`,
+      label: c.city ?? "Desconhecida",
+      countryCode: c.countryCode,
       count: c._count._all,
     })),
     browsers: browsers.map((b) => ({ label: label(b.key, "Outro"), count: b.count })),
@@ -156,11 +160,6 @@ export async function getLinkStats(linkId: string, range: RangeKey) {
 }
 
 export type LinkStats = Awaited<ReturnType<typeof getLinkStats>>;
-
-export function flag(countryCode: string): string {
-  if (!/^[A-Z]{2}$/i.test(countryCode)) return "";
-  return String.fromCodePoint(...[...countryCode.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
-}
 
 export function deviceLabel(device: string | null): string {
   const labels: Record<string, string> = {

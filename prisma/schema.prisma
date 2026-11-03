@@ -24,7 +24,9 @@ model Click {
   link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
-  /// SHA-256 do IP + salt. O IP bruto nunca é persistido (LGPD / privacy by design).
+  /// IP público do dispositivo que clicou.
+  ip     String?
+  /// SHA-256 do IP + salt: usado para contar visitantes únicos.
   ipHash String
 
   // Geolocalização aproximada pelo IP (precisão de cidade)
@@ -35,6 +37,10 @@ model Click {
   city        String?
   latitude    Float?
   longitude   Float?
+  postalCode  String?
+  timezone    String? // fuso horário do local do IP, ex: America/Sao_Paulo
+  isp         String? // provedor de internet (ex: Claro, Vivo)
+  asn         Int? // número do sistema autônomo da rede
 
   // Geolocalização precisa (Geolocation API do navegador, só com consentimento)
   preciseLatitude  Float?
@@ -43,14 +49,18 @@ model Click {
   preciseStatus    String? // "granted" | "denied" | "unavailable" | "timeout"
 
   // Contexto técnico
-  device       String // "desktop" | "mobile" | "tablet" | "bot" | ...
-  browser      String?
-  os           String?
-  referrerHost String?
-  referrer     String?
-  language     String?
-  userAgent    String?
-  isBot        Boolean @default(false)
+  device         String // "desktop" | "mobile" | "tablet" | "bot" | ...
+  deviceVendor   String? // ex: Apple, Samsung
+  deviceModel    String? // ex: iPhone, SM-S918B
+  browser        String?
+  browserVersion String?
+  os             String?
+  osVersion      String?
+  referrerHost   String?
+  referrer       String?
+  language       String?
+  userAgent      String?
+  isBot          Boolean @default(false)
 
   @@index([linkId, createdAt])
   @@index([linkId, countryCode])

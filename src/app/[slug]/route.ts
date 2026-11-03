@@ -1,6 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createClick, enrichClickGeo } from "@/lib/clicks";
+import { isPrefetch } from "@/lib/user-agent";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
@@ -13,10 +14,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
   const headers = new Headers(req.headers);
   let target = link.url;
 
+  // Pré-carregamento do navegador: redireciona sem contar (o clique real vem depois).
+  if (isPrefetch(headers)) {
+    return NextResponse.redirect(target, { status: 302, headers: { "Cache-Control": "no-store" } });
+  }
+
   try {
     const click = await createClick(link.id, headers);
     // Geolocalização por IP acontece depois da resposta: o usuário não espera pela API de geo.
-    after(() => enrichClickGeo(click.id, headers, click.ip).catch((err) => console.error("geo enrich failed", err)));
+    after(() => enrichClickGeo(click.id, headers, click.ip, click.lookupSelf).catch((err) => console.error("geo enrich failed", err)));
 
     if (link.preciseGeo) target = new URL(`/go/${click.id}`, req.url).toString();
   } catch (err) {

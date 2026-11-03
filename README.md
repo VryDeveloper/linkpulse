@@ -1,8 +1,8 @@
 # LinkPulse — encurtador de links com analytics geográfico
 
-Encurtador de URLs que registra **cada clique**: de onde veio (país, região, cidade e coordenadas), quando, em qual dispositivo/navegador/SO e de qual site a pessoa chegou. Mostra tudo num dashboard com mapa, série temporal e rankings.
+Encurtador de URLs que registra **cada clique**: quando (com segundos e no fuso de quem clicou), de onde veio (IP, provedor de internet, país, estado, cidade, CEP e coordenadas), em qual dispositivo (tipo, fabricante, modelo, sistema e navegador com versões) e de qual site a pessoa chegou. Mostra tudo num dashboard com mapa, série temporal, rankings e o detalhe completo de cada clique.
 
-O foco do projeto é **geolocalização com responsabilidade**: precisão de cidade por IP em todo clique, precisão de metros via GPS **somente com consentimento**, e nenhum IP bruto armazenado.
+O foco do projeto é **geolocalização**: precisão de cidade por IP em todo clique, e precisão de metros via GPS **com consentimento** de quem clica.
 
 ![Dashboard](docs/home.png)
 
@@ -15,9 +15,18 @@ O foco do projeto é **geolocalização com responsabilidade**: precisão de cid
   2. Fallback para a API [ipwho.is](https://ipwho.is), com timeout curto
   3. Nunca lança erro: se tudo falhar, o clique é salvo sem geo
 - **Modo localização precisa (opcional, por link)**: uma página intermediária pede permissão de GPS (Geolocation API). Quem recusa segue para o destino normalmente, e o dashboard mostra a taxa de aceite
-- **Analytics**: cliques, visitantes únicos, cliques por dia (fuso `America/Sao_Paulo`), mapa (Leaflet), países, cidades, referrers, dispositivos, navegadores, sistemas e tabela dos últimos cliques
-- **Filtro de bots**: previews de WhatsApp/Telegram/Slack, crawlers e `curl` são registrados, mas ficam fora das métricas
-- **Privacidade**: o IP é pseudonimizado com `sha256(salt + ip)`. Isso basta para contar visitantes únicos sem guardar o dado pessoal (LGPD)
+- **Analytics**: cliques, visitantes únicos, cliques por dia (fuso `America/Sao_Paulo`), mapa (Leaflet), países, cidades, referrers, dispositivos, navegadores e sistemas
+- **Detalhe de cada clique**: data e hora (Brasília, UTC e hora local de quem clicou), IP, provedor de internet e ASN, país, estado, cidade, CEP, fuso, coordenadas (com link para o mapa), GPS, tipo/fabricante/modelo do aparelho, sistema e navegador com versão, idioma, referrer completo e user agent
+- **Filtro de bots e pré-carregamento**: previews de WhatsApp/Telegram/Slack, crawlers e `curl` são registrados, mas ficam fora das métricas. Requisições de *prefetch* do navegador nem contam como clique
+- **Visitantes únicos** contados por `sha256(salt + ip)`
+
+### Precisão da geolocalização por IP
+
+A localização por IP indica onde fica o **ponto de saída da rede do provedor**, não o aparelho. Em banda larga costuma acertar a cidade. Em **4G/5G** é comum aparecer a cidade onde a operadora concentra o tráfego (às vezes a capital ou outro estado). Para precisão real, use o modo GPS.
+
+### Dados pessoais (LGPD)
+
+IP e localização são dados pessoais. Ao usar em produção, informe na sua política de privacidade que os cliques são registrados e defina um prazo de retenção.
 
 <p align="center"><img src="docs/consentimento-gps.png" width="300" alt="Página de consentimento de GPS" /></p>
 
@@ -79,7 +88,7 @@ O banco local é o **Postgres embutido do Prisma** (`prisma dev`, baseado em PGl
 
 Para usar outro Postgres (Neon, Supabase, Docker…), troque o `DATABASE_URL` no `.env`. Os scripts detectam a troca e deixam de subir o banco local.
 
-Em `localhost` o IP do clique é `127.0.0.1`, que não tem geolocalização. Por isso o `.env` vem com `GEO_DEV_IP` preenchido com um IP público, para os cliques locais aparecerem no mapa.
+Em `localhost` o clique chega como `127.0.0.1`, que não tem geolocalização. Por isso, em desenvolvimento, o app descobre sozinho o **IP público da sua máquina** e registra a sua localização real. Para simular um clique de outro lugar, preencha `GEO_DEV_IP` no `.env`.
 
 ## Deploy
 

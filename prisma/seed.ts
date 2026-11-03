@@ -29,15 +29,38 @@ const CITIES = [
 ];
 
 const CLIENTS = [
-  { device: "mobile", browser: "Mobile Safari", os: "iOS", w: 24 },
-  { device: "mobile", browser: "Chrome", os: "Android", w: 32 },
-  { device: "desktop", browser: "Chrome", os: "Windows", w: 20 },
-  { device: "desktop", browser: "Edge", os: "Windows", w: 5 },
-  { device: "desktop", browser: "Safari", os: "macOS", w: 8 },
-  { device: "desktop", browser: "Firefox", os: "Linux", w: 3 },
-  { device: "tablet", browser: "Mobile Safari", os: "iOS", w: 3 },
-  { device: "mobile", browser: "Samsung Internet", os: "Android", w: 5 },
+  { device: "mobile", deviceVendor: "Apple", deviceModel: "iPhone", browser: "Mobile Safari", browserVersion: "18.1", os: "iOS", osVersion: "18.1", w: 24 },
+  { device: "mobile", deviceVendor: "Samsung", deviceModel: "SM-S918B", browser: "Samsung Internet", browserVersion: "26.0", os: "Android", osVersion: "14", w: 8 },
+  { device: "mobile", deviceVendor: "Motorola", deviceModel: "moto g84 5G", browser: "Chrome", browserVersion: "130.0.0.0", os: "Android", osVersion: "14", w: 10 },
+  { device: "mobile", deviceVendor: null, deviceModel: null, browser: "Chrome", browserVersion: "130.0.0.0", os: "Android", osVersion: "10", w: 18 },
+  { device: "desktop", deviceVendor: null, deviceModel: null, browser: "Chrome", browserVersion: "130.0.0.0", os: "Windows", osVersion: "10", w: 20 },
+  { device: "desktop", deviceVendor: null, deviceModel: null, browser: "Edge", browserVersion: "130.0.0.0", os: "Windows", osVersion: "10", w: 5 },
+  { device: "desktop", deviceVendor: "Apple", deviceModel: "Macintosh", browser: "Safari", browserVersion: "18.1", os: "macOS", osVersion: "10.15.7", w: 8 },
+  { device: "desktop", deviceVendor: null, deviceModel: null, browser: "Firefox", browserVersion: "132.0", os: "Linux", osVersion: null, w: 3 },
+  { device: "tablet", deviceVendor: "Apple", deviceModel: "iPad", browser: "Mobile Safari", browserVersion: "18.1", os: "iOS", osVersion: "18.1", w: 3 },
 ];
+
+const ISPS = [
+  { isp: "Claro S.A.", asn: 28573, w: 25 },
+  { isp: "Telefonica Brasil S.A (Vivo)", asn: 26599, w: 25 },
+  { isp: "TIM S/A", asn: 26615, w: 15 },
+  { isp: "Oi S.A.", asn: 7738, w: 8 },
+  { isp: "Brisanet", asn: 28126, w: 5 },
+  { isp: "Algar Telecom", asn: 16735, w: 4 },
+];
+const FOREIGN_ISP: Record<string, { isp: string; asn: number }> = {
+  PT: { isp: "MEO", asn: 3243 },
+  AR: { isp: "Telecom Argentina", asn: 7303 },
+  US: { isp: "Comcast Cable", asn: 7922 },
+  GB: { isp: "BT", asn: 2856 },
+  JP: { isp: "NTT", asn: 4713 },
+};
+const TIMEZONES: Record<string, string> = {
+  PT: "Europe/Lisbon",
+  AR: "America/Argentina/Buenos_Aires",
+  GB: "Europe/London",
+  JP: "Asia/Tokyo",
+};
 
 const REFERRERS = [
   { host: "instagram.com", w: 22 },
@@ -74,7 +97,11 @@ async function main() {
   const now = Date.now();
 
   for (const [i, link] of links.entries()) {
-    const visitors = Array.from({ length: Math.round(volumes[i] * 0.6) }, () => nanoid());
+    // IPs fictícios das faixas reservadas para documentação (RFC 5737): não pertencem a ninguém.
+    const visitors = Array.from({ length: Math.round(volumes[i] * 0.6) }, (_, v) => {
+      const block = ["192.0.2", "198.51.100", "203.0.113"][v % 3];
+      return `${block}.${(v * 7) % 254 + 1}`;
+    });
     const data = Array.from({ length: volumes[i] }, () => {
       // Mais cliques nos dias recentes, com um pico ~10 dias atrás (simula uma divulgação).
       const daysAgo = Math.random() < 0.25 ? jitter(10, 3) : Math.pow(Math.random(), 1.6) * 89;
@@ -82,13 +109,16 @@ async function main() {
       const client = pick(CLIENTS);
       const ref = pick(REFERRERS);
       const precise = link.preciseGeo && Math.random() < 0.55;
+      const visitor = visitors[Math.floor(Math.random() * visitors.length)];
+      const net = FOREIGN_ISP[place.cc] ?? pick(ISPS);
       const lat = jitter(place.lat, 0.12);
       const lng = jitter(place.lng, 0.12);
       return {
         id: nanoid(16),
         linkId: link.id,
         createdAt: new Date(now - Math.max(0, daysAgo) * 86_400_000),
-        ipHash: createHash("sha256").update(visitors[Math.floor(Math.random() * visitors.length)]).digest("hex").slice(0, 32),
+        ip: visitor,
+        ipHash: createHash("sha256").update(visitor).digest("hex").slice(0, 32),
         geoSource: "ipwho.is",
         country: place.country,
         countryCode: place.cc,
@@ -96,13 +126,21 @@ async function main() {
         city: place.city,
         latitude: place.lat,
         longitude: place.lng,
+        postalCode: null,
+        timezone: TIMEZONES[place.cc] ?? (place.cc === "US" ? (place.lng < -85 ? "America/Chicago" : "America/New_York") : "America/Sao_Paulo"),
+        isp: net.isp,
+        asn: net.asn,
         preciseStatus: link.preciseGeo ? (precise ? "granted" : "denied") : null,
         preciseLatitude: precise ? lat : null,
         preciseLongitude: precise ? lng : null,
         preciseAccuracy: precise ? Math.round(8 + Math.random() * 60) : null,
         device: client.device,
+        deviceVendor: client.deviceVendor,
+        deviceModel: client.deviceModel,
         browser: client.browser,
+        browserVersion: client.browserVersion,
         os: client.os,
+        osVersion: client.osVersion,
         referrerHost: ref.host,
         referrer: ref.host ? `https://${ref.host}/` : null,
         language: place.cc === "BR" ? "pt-BR" : place.cc === "PT" ? "pt-PT" : "en-US",

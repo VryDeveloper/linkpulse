@@ -5,14 +5,27 @@ import { getClientIp, hashIp, isPrivateIp } from "./ip";
 import { parseReferrer, parseUserAgent } from "./user-agent";
 
 /**
+ * Resolve qual IP consultar na geolocalização.
+ * Em desenvolvimento, quem clica está na mesma máquina do servidor, então o IP chega como
+ * 127.0.0.1/::1. Nesse caso retornamos `null`, que significa "descubra o IP público desta
+ * máquina" (ou usamos GEO_DEV_IP, se definido, para simular outro local).
+ */
+function resolveIp(headers: Headers): { ip: string | null; lookupSelf: boolean } {
+  const ip = getClientIp(headers);
+  if (ip && !isPrivateIp(ip)) return { ip, lookupSelf: false };
+  if (process.env.NODE_ENV !== "production") {
+    if (process.env.GEO_DEV_IP) return { ip: process.env.GEO_DEV_IP, lookupSelf: false };
+    return { ip: null, lookupSelf: true };
+  }
+  return { ip, lookupSelf: false };
+}
+
+/**
  * Fase síncrona do registro: grava o clique com o que já está nos headers (barato).
  * Retorna o id e o IP para a fase assíncrona de geolocalização.
  */
 export async function createClick(linkId: string, headers: Headers) {
-  let ip = getClientIp(headers);
-  if (process.env.NODE_ENV !== "production" && process.env.GEO_DEV_IP && (!ip || isPrivateIp(ip))) {
-    ip = process.env.GEO_DEV_IP;
-  }
+  const { ip, lookupSelf } = resolveIp(headers);
 
   const ua = headers.get("user-agent");
   const client = parseUserAgent(ua);
@@ -23,11 +36,9 @@ export async function createClick(linkId: string, headers: Headers) {
     data: {
       id,
       linkId,
+      ip,
       ipHash: hashIp(ip),
-      device: client.device,
-      browser: client.browser,
-      os: client.os,
-      isBot: client.isBot,
+      ...client,
       referrer: ref.referrer,
       referrerHost: ref.host,
       language: headers.get("accept-language")?.split(",")[0]?.trim().slice(0, 16) ?? null,
@@ -35,15 +46,20 @@ export async function createClick(linkId: string, headers: Headers) {
     },
   });
 
-  return { id, ip };
+  return { id, ip, lookupSelf };
 }
 
 /** Fase assíncrona: roda depois que o redirect já foi enviado (via `after()`). */
-export async function enrichClickGeo(clickId: string, headers: Headers, ip: string | null) {
+export async function enrichClickGeo(clickId: string, headers: Headers, ip: string | null, lookupSelf = false) {
+  if (!ip && !lookupSelf) return;
   const geo = await lookupGeo(headers, ip);
+  // No modo "descobrir meu IP", o IP real só é conhecido agora: atualiza IP e hash.
+  const resolvedIp = lookupSelf && geo.ip ? geo.ip : null;
+
   await prisma.click.update({
     where: { id: clickId },
     data: {
+      ...(resolvedIp ? { ip: resolvedIp, ipHash: hashIp(resolvedIp) } : {}),
       geoSource: geo.source,
       country: geo.country,
       countryCode: geo.countryCode,
@@ -51,6 +67,10 @@ export async function enrichClickGeo(clickId: string, headers: Headers, ip: stri
       city: geo.city,
       latitude: geo.latitude,
       longitude: geo.longitude,
+      postalCode: geo.postalCode,
+      timezone: geo.timezone,
+      isp: geo.isp,
+      asn: geo.asn,
     },
   });
 }
