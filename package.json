@@ -16,7 +16,8 @@
     "predev": "node scripts/db-start.mjs",
     "db:start": "node scripts/db-start.mjs",
     "db:stop": "prisma dev stop linkpulse",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

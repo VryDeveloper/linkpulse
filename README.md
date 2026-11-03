@@ -90,9 +90,20 @@ Para usar outro Postgres (Neon, Supabase, Docker…), troque o `DATABASE_URL` no
 
 Em `localhost` o clique chega como `127.0.0.1`, que não tem geolocalização. Por isso, em desenvolvimento, o app descobre sozinho o **IP público da sua máquina** e registra a sua localização real. Para simular um clique de outro lugar, preencha `GEO_DEV_IP` no `.env`.
 
-## Deploy
+## Deploy na Vercel
 
-Na **Vercel**, os headers `x-vercel-ip-*` já vêm em toda requisição, então a geo por IP funciona sem nenhuma API externa. Basta configurar `DATABASE_URL` com um Postgres na nuvem (Neon, Supabase, Railway…) e `IP_HASH_SALT`, e rodar `npx prisma migrate deploy`.
+1. Importe o repositório em [vercel.com/new](https://vercel.com/new)
+2. Em **Storage**, crie um banco **Neon** (Postgres) e conecte ao projeto. Isso cria `DATABASE_URL` e `DATABASE_URL_UNPOOLED`
+3. Em **Settings → Environment Variables**, adicione `IP_HASH_SALT` (texto aleatório) e `ADMIN_PASSWORD`
+4. Faça o deploy. O script `vercel-build` aplica as migrations (pela conexão direta) antes do build
+
+Na Vercel, os headers `x-vercel-ip-*` trazem país, cidade, CEP, fuso e coordenadas em toda requisição. A API ipwho.is só completa o provedor de internet.
+
+## Segurança
+
+- **Painel protegido por senha** (`src/proxy.ts`, HTTP Basic Auth). Os links curtos e a página de consentimento continuam públicos. Sem `ADMIN_PASSWORD` em produção, o painel fica bloqueado (falha segura)
+- Só URLs `http(s)` podem ser encurtadas (bloqueia `javascript:` e afins)
+- O endpoint de GPS aceita um único envio por clique, em até 5 minutos
 
 ## API
 
@@ -105,7 +116,7 @@ Na **Vercel**, os headers `x-vercel-ip-*` já vêm em toda requisição, então 
 
 ## Próximos passos
 
-- Autenticação (cada usuário vê só os próprios links)
+- Contas de usuário (cada pessoa vê só os próprios links)
 - Rate limiting na criação de links
 - QR code por link
 - Exportar cliques em CSV
