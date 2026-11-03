@@ -11,7 +11,12 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup": "node scripts/setup.mjs",
+    "predev": "node scripts/db-start.mjs",
+    "db:start": "node scripts/db-start.mjs",
+    "db:stop": "prisma dev stop linkpulse",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -38,5 +43,8 @@
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20.12"
   }
 }

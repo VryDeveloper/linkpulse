@@ -58,27 +58,32 @@ Next.js 16 (App Router, Cache Components) · TypeScript · Prisma 6 · PostgreSQ
 
 ## Rodando localmente
 
-Pré-requisitos: Node 20+ e PostgreSQL.
+Pré-requisito: **Node 20.12+**. Você não precisa instalar Postgres nem Docker, nem criar conta em lugar nenhum.
 
 ```bash
-cp .env.example .env        # ajuste DATABASE_URL e IP_HASH_SALT
 npm install
-npm run db:migrate          # cria as tabelas
-npm run db:seed             # opcional: 3 links com ~1.500 cliques de demonstração
-npm run dev
+npm run setup   # cria o .env, sobe o Postgres local, aplica as migrations e insere dados de demo
+npm run dev     # http://localhost:3000
 ```
 
-Em `localhost` o IP é `127.0.0.1` e não tem geolocalização. Defina `GEO_DEV_IP` no `.env` com um IP público para simular cliques reais em desenvolvimento.
+O banco local é o **Postgres embutido do Prisma** (`prisma dev`, baseado em PGlite). É um Postgres de verdade rodando em segundo plano, sem instalação. O `npm run dev` sobe esse banco automaticamente, e o `npm run setup` pode ser rodado de novo sem apagar seus dados.
 
-Testes:
+| Comando | O que faz |
+|---|---|
+| `npm run setup` | Configuração inicial completa (idempotente) |
+| `npm run dev` | Sobe o banco local (se necessário) e o app |
+| `npm run db:stop` | Para o banco local |
+| `npm run db:seed` | **Recria** os dados de demonstração (apaga os existentes) |
+| `npm run db:studio` | Abre o Prisma Studio para navegar nas tabelas |
+| `npm test` | Testes unitários (Vitest) |
 
-```bash
-npm test
-```
+Para usar outro Postgres (Neon, Supabase, Docker…), troque o `DATABASE_URL` no `.env`. Os scripts detectam a troca e deixam de subir o banco local.
+
+Em `localhost` o IP do clique é `127.0.0.1`, que não tem geolocalização. Por isso o `.env` vem com `GEO_DEV_IP` preenchido com um IP público, para os cliques locais aparecerem no mapa.
 
 ## Deploy
 
-Na **Vercel**, os headers `x-vercel-ip-*` já vêm em toda requisição, então a geo por IP funciona sem nenhuma API externa. Basta configurar `DATABASE_URL` (Neon, Supabase, Railway…) e `IP_HASH_SALT`, e rodar `npx prisma migrate deploy`.
+Na **Vercel**, os headers `x-vercel-ip-*` já vêm em toda requisição, então a geo por IP funciona sem nenhuma API externa. Basta configurar `DATABASE_URL` com um Postgres na nuvem (Neon, Supabase, Railway…) e `IP_HASH_SALT`, e rodar `npx prisma migrate deploy`.
 
 ## API
 
