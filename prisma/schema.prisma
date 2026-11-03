@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Link {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  url        String
+  title      String?
+  /// Quando true, o redirect passa por uma página que pede a localização GPS (com consentimento).
+  preciseGeo Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  clicks     Click[]
+}
+
+model Click {
+  id        String   @id
+  linkId    String
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  /// SHA-256 do IP + salt. O IP bruto nunca é persistido (LGPD / privacy by design).
+  ipHash String
+
+  // Geolocalização aproximada pelo IP (precisão de cidade)
+  geoSource   String? // "edge-headers" | "ipwho.is" | "none"
+  country     String?
+  countryCode String?
+  region      String?
+  city        String?
+  latitude    Float?
+  longitude   Float?
+
+  // Geolocalização precisa (Geolocation API do navegador, só com consentimento)
+  preciseLatitude  Float?
+  preciseLongitude Float?
+  preciseAccuracy  Float? // raio em metros
+  preciseStatus    String? // "granted" | "denied" | "unavailable" | "timeout"
+
+  // Contexto técnico
+  device       String // "desktop" | "mobile" | "tablet" | "bot" | ...
+  browser      String?
+  os           String?
+  referrerHost String?
+  referrer     String?
+  language     String?
+  userAgent    String?
+  isBot        Boolean @default(false)
+
+  @@index([linkId, createdAt])
+  @@index([linkId, countryCode])
+}

@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LinkPulse — encurtador de links com analytics geográfico
 
-## Getting Started
+Encurtador de URLs que registra **cada clique**: de onde veio (país, região, cidade e coordenadas), quando, em qual dispositivo/navegador/SO e de qual site a pessoa chegou. Mostra tudo num dashboard com mapa, série temporal e rankings.
 
-First, run the development server:
+O foco do projeto é **geolocalização com responsabilidade**: precisão de cidade por IP em todo clique, precisão de metros via GPS **somente com consentimento**, e nenhum IP bruto armazenado.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+![Dashboard](docs/home.png)
+
+## Funcionalidades
+
+- **Encurtar links** com slug aleatório (sem caracteres ambíguos) ou alias personalizado
+- **Redirect rápido**: a geolocalização roda *depois* da resposta (`after()` do Next.js), então quem clica não espera a API de geo
+- **Geolocalização por IP** com cadeia de provedores:
+  1. Headers da edge (`x-vercel-ip-*` na Vercel, `cf-ip*` na Cloudflare): custo e latência zero
+  2. Fallback para a API [ipwho.is](https://ipwho.is), com timeout curto
+  3. Nunca lança erro: se tudo falhar, o clique é salvo sem geo
+- **Modo localização precisa (opcional, por link)**: uma página intermediária pede permissão de GPS (Geolocation API). Quem recusa segue para o destino normalmente, e o dashboard mostra a taxa de aceite
+- **Analytics**: cliques, visitantes únicos, cliques por dia (fuso `America/Sao_Paulo`), mapa (Leaflet), países, cidades, referrers, dispositivos, navegadores, sistemas e tabela dos últimos cliques
+- **Filtro de bots**: previews de WhatsApp/Telegram/Slack, crawlers e `curl` são registrados, mas ficam fora das métricas
+- **Privacidade**: o IP é pseudonimizado com `sha256(salt + ip)`. Isso basta para contar visitantes únicos sem guardar o dado pessoal (LGPD)
+
+<p align="center"><img src="docs/consentimento-gps.png" width="300" alt="Página de consentimento de GPS" /></p>
+
+## Arquitetura
+
+```mermaid
+sequenceDiagram
+    participant U as Visitante
+    participant R as GET /[slug]
+    participant DB as Postgres
+    participant G as Geo (edge headers / ipwho.is)
+
+    U->>R: clica em lnk/abc123
+    R->>DB: busca link + INSERT click (UA, referrer, hash do IP)
+    R-->>U: 302 → destino (ou /go/:clickId no modo preciso)
+    R-)G: after(): lookup do IP
+    G-->>DB: UPDATE click (país, cidade, lat/lng)
+    opt modo preciso
+        U->>U: navegador pede permissão de localização
+        U->>DB: POST /api/clicks/:id/precise (lat, lng, accuracy)
+        U-->>U: redirect → destino
+    end
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Decisões de design:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Decisão | Por quê |
+|---|---|
+| `302` + `Cache-Control: no-store` | Um `301` seria cacheado pelo navegador e os próximos cliques não chegariam ao servidor |
+| Insert síncrono + enriquecimento em `after()` | O id do clique existe antes do redirect (necessário no modo preciso), e a latência de geo fica fora do caminho crítico |
+| Geo por IP e por GPS em colunas separadas | Não há corrida entre as duas escritas, e o dashboard sabe a origem e a precisão de cada ponto |
+| Endpoint de GPS só aceita 1 envio, em até 5 min, e apenas em links com modo preciso | Evita que alguém injete coordenadas falsas em cliques antigos |
+| Pontos do mapa agrupados numa grade de ~1 km | O mapa continua leve com milhares de cliques |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Stack
 
-## Learn More
+Next.js 16 (App Router, Cache Components) · TypeScript · Prisma 6 · PostgreSQL · Tailwind CSS 4 · Recharts · Leaflet · Zod · Vitest
 
-To learn more about Next.js, take a look at the following resources:
+## Rodando localmente
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pré-requisitos: Node 20+ e PostgreSQL.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cp .env.example .env        # ajuste DATABASE_URL e IP_HASH_SALT
+npm install
+npm run db:migrate          # cria as tabelas
+npm run db:seed             # opcional: 3 links com ~1.500 cliques de demonstração
+npm run dev
+```
 
-## Deploy on Vercel
+Em `localhost` o IP é `127.0.0.1` e não tem geolocalização. Defina `GEO_DEV_IP` no `.env` com um IP público para simular cliques reais em desenvolvimento.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Testes:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test
+```
+
+## Deploy
+
+Na **Vercel**, os headers `x-vercel-ip-*` já vêm em toda requisição, então a geo por IP funciona sem nenhuma API externa. Basta configurar `DATABASE_URL` (Neon, Supabase, Railway…) e `IP_HASH_SALT`, e rodar `npx prisma migrate deploy`.
+
+## API
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/links` | `{ url, slug?, title?, preciseGeo? }` → cria link (`409` se o alias existir) |
+| `GET` | `/api/links` | Lista links com total de cliques |
+| `GET` | `/:slug` | Registra o clique e redireciona |
+| `POST` | `/api/clicks/:id/precise` | `{ status: "granted", latitude, longitude, accuracy }` ou `{ status: "denied" \| "timeout" \| "unavailable" }` |
+
+## Próximos passos
+
+- Autenticação (cada usuário vê só os próprios links)
+- Rate limiting na criação de links
+- QR code por link
+- Exportar cliques em CSV

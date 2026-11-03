@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  color-scheme: light;
+  --bg: #f6f6f4;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e3e2de;
+  --text: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --accent: #2a78d6;
+  --series-ip: #2a78d6; /* categórico slot 1 */
+  --series-gps: #eb6834; /* categórico slot 2 */
+  --grid: #e9e8e4;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+    --bg: #111110;
+    --surface: #1a1a19;
+    --surface-2: #232321;
+    --border: #2e2e2b;
+    --text: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --accent: #3987e5;
+    --series-ip: #3987e5;
+    --series-gps: #d95926;
+    --grid: #2a2a27;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.leaflet-container {
+  background: var(--surface-2);
+  font: inherit;
+}
+
+/* Recharts: cores via CSS, pois var() em atributos SVG não é resolvido. */
+.clicks-chart .recharts-cartesian-grid line { stroke: var(--grid); }
+.clicks-chart .recharts-cartesian-axis-tick text { fill: var(--text-muted); }
+.clicks-chart .clicks-chart-bar path,
+.clicks-chart .recharts-bar-rectangle path { fill: var(--series-ip); }
+.clicks-chart .recharts-tooltip-cursor { fill: var(--surface-2); }

@@ -1,69 +1,76 @@
-import Image from "next/image";
+import Link from "next/link";
+import { prisma } from "@/lib/db";
+import { getBaseUrl } from "@/lib/base-url";
+import { CreateLinkForm } from "@/components/create-link-form";
+import { CopyButton } from "@/components/copy-button";
 
-export default function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ notFound?: string }> }) {
+  const { notFound } = await searchParams;
+  const baseUrl = await getBaseUrl();
+  const links = await prisma.link.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { clicks: { where: { isBot: false } } } } },
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <section>
+        <h1 className="text-2xl font-semibold tracking-tight">Seus links</h1>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          Encurte uma URL e acompanhe cada clique: país, cidade, dispositivo, navegador e origem.
+        </p>
+      </section>
+
+      {notFound && (
+        <p className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm">
+          O link <code className="font-mono">/{notFound}</code> não existe.
+        </p>
+      )}
+
+      <CreateLinkForm baseUrl={baseUrl} />
+
+      <section className="card overflow-hidden">
+        {links.length === 0 ? (
+          <p className="p-8 text-center text-sm text-[var(--text-secondary)]">Nenhum link ainda. Crie o primeiro acima.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--border)]">
+            {links.map((link) => {
+              const short = `${baseUrl}/${link.slug}`;
+              return (
+                <li key={link.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <a href={short} target="_blank" className="font-mono text-sm font-medium text-[var(--accent)]">
+                        {short.replace(/^https?:\/\//, "")}
+                      </a>
+                      {link.preciseGeo && (
+                        <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
+                          GPS
+                        </span>
+                      )}
+                    </div>
+                    {link.title && <p className="mt-0.5 text-sm">{link.title}</p>}
+                    <p className="truncate text-xs text-[var(--text-muted)]">{link.url}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-lg font-semibold tabular-nums">{link._count.clicks.toLocaleString("pt-BR")}</p>
+                      <p className="text-[11px] text-[var(--text-muted)]">cliques</p>
+                    </div>
+                    <CopyButton value={short} />
+                    <Link
+                      href={`/links/${link.slug}`}
+                      className="rounded-md bg-[var(--surface-2)] px-3 py-1 text-xs font-medium hover:bg-[var(--border)]"
+                    >
+                      Analytics →
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    </main>
   );
 }
