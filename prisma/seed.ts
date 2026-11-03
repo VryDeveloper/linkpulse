@@ -4,7 +4,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { nanoid } from "nanoid";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 const prisma = new PrismaClient();
 
@@ -85,12 +85,30 @@ async function main() {
   await prisma.click.deleteMany();
   await prisma.link.deleteMany();
 
+  // Cada link recebe uma chave de dono, como se tivesse sido criado pelo site.
+  const tokens = new Map<string, string>();
+  const owned = (slug: string) => {
+    const token = randomBytes(24).toString("base64url");
+    tokens.set(slug, token);
+    return createHash("sha256").update(token).digest("hex");
+  };
+
   const links = await Promise.all([
-    prisma.link.create({ data: { slug: "portfolio", url: "https://github.com/VryDeveloper", title: "Meu portfólio no GitHub" } }),
     prisma.link.create({
-      data: { slug: "evento-tech", url: "https://example.com/meetup-novembro", title: "Meetup de tecnologia — inscrições", preciseGeo: true },
+      data: { slug: "portfolio", url: "https://github.com/VryDeveloper", title: "Meu portfólio no GitHub", manageTokenHash: owned("portfolio") },
     }),
-    prisma.link.create({ data: { slug: "curriculo", url: "https://example.com/curriculo.pdf", title: "Currículo (PDF)" } }),
+    prisma.link.create({
+      data: {
+        slug: "evento-tech",
+        url: "https://example.com/meetup-novembro",
+        title: "Meetup de tecnologia — inscrições",
+        preciseGeo: true,
+        manageTokenHash: owned("evento-tech"),
+      },
+    }),
+    prisma.link.create({
+      data: { slug: "curriculo", url: "https://example.com/curriculo.pdf", title: "Currículo (PDF)", manageTokenHash: owned("curriculo") },
+    }),
   ]);
 
   const volumes = [900, 420, 160];
@@ -161,7 +179,10 @@ async function main() {
     await prisma.click.createMany({ data });
   }
 
+  const base = (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
   console.log(`Seed concluído: ${links.length} links.`);
+  console.log("Abra os links de acesso abaixo para adicioná-los aos \"Meus links\" do seu navegador:");
+  for (const [slug, token] of tokens) console.log(`  ${base}/links/${slug}#chave=${token}`);
 }
 
 main().finally(() => prisma.$disconnect());

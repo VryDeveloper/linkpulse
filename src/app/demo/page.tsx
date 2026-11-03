@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import QRCode from "qrcode";
 import { getBaseUrl } from "@/lib/base-url";
 import { DEMO_SLUG, getDemoLink, getDemoSnapshot } from "@/lib/demo";
@@ -38,6 +39,9 @@ export default async function DemoPage() {
               {shortUrl.replace(/^https?:\/\//, "")}
             </a>
             <CopyButton value={shortUrl} />
+            <Link href="/" className="text-sm font-medium text-[var(--accent)] hover:underline">
+              Crie o seu link →
+            </Link>
           </div>
         </div>
         <div className="flex flex-col items-center gap-2 max-sm:hidden">

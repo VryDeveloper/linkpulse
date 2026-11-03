@@ -16,6 +16,17 @@ A página **`/demo`** é pública e foi feita para quem visita o portfólio:
 
 A página consulta `/api/demo` a cada 4 segundos (polling, pausado com a aba em segundo plano). Na versão pública o IP é mascarado (`177.37.x.x`), as coordenadas são arredondadas para ~1 km e user agent, CEP e referrer completo não saem do servidor (garantido por teste).
 
+## Sem cadastro: seus links ficam no seu navegador
+
+Qualquer pessoa pode encurtar links, sem conta e sem senha.
+
+- Ao criar um link, o servidor gera uma **chave secreta** aleatória, devolve ela uma única vez e guarda só o **hash SHA-256** dela
+- O link e a chave ficam no **IndexedDB** do navegador de quem criou ("Meus links")
+- Para ver o analytics, o navegador envia a chave em `Authorization: Bearer …`. Sem a chave certa a API responde 404, e ninguém vê os links de outra pessoa
+- **Link de acesso**: para abrir em outro aparelho, copie o link de acesso (`/links/abc#chave=…`). A chave vai no fragmento `#`, que o navegador nunca envia ao servidor, e a página tira ela da barra de endereço depois de salvar
+- Os **cliques** ficam no servidor (Postgres), porque acontecem nos aparelhos de outras pessoas
+- Limite de 30 links por hora por IP, para o encurtador não virar ferramenta de spam
+
 ## Funcionalidades
 
 - **Encurtar links** com slug aleatório (sem caracteres ambíguos) ou alias personalizado
@@ -82,7 +93,7 @@ Pré-requisito: **Node 20.12+**. Você não precisa instalar Postgres nem Docker
 ```bash
 npm install
 npm run setup   # cria o .env, sobe o Postgres local, aplica as migrations e insere dados de demo
-npm run dev     # http://localhost:3000 (demo) e /dashboard (painel)
+npm run dev     # http://localhost:3000
 ```
 
 O banco local é o **Postgres embutido do Prisma** (`prisma dev`, baseado em PGlite). É um Postgres de verdade rodando em segundo plano, sem instalação. O `npm run dev` sobe esse banco automaticamente, e o `npm run setup` pode ser rodado de novo sem apagar seus dados.
@@ -92,7 +103,7 @@ O banco local é o **Postgres embutido do Prisma** (`prisma dev`, baseado em PGl
 | `npm run setup` | Configuração inicial completa (idempotente) |
 | `npm run dev` | Sobe o banco local (se necessário) e o app |
 | `npm run db:stop` | Para o banco local |
-| `npm run db:seed` | **Recria** os dados de demonstração (apaga os existentes) |
+| `npm run db:seed` | **Recria** os dados de demonstração (apaga os existentes) e mostra os links de acesso deles |
 | `npm run db:studio` | Abre o Prisma Studio para navegar nas tabelas |
 | `npm test` | Testes unitários (Vitest) |
 
@@ -104,30 +115,35 @@ Em `localhost` o clique chega como `127.0.0.1`, que não tem geolocalização. P
 
 1. Importe o repositório em [vercel.com/new](https://vercel.com/new)
 2. Em **Storage**, crie um banco **Neon** (Postgres) e conecte ao projeto. Isso cria `DATABASE_URL` e `DATABASE_URL_UNPOOLED`
-3. Em **Settings → Environment Variables**, adicione `IP_HASH_SALT` (texto aleatório) e `ADMIN_PASSWORD`
-4. Faça o deploy. O script `vercel-build` aplica as migrations (pela conexão direta) antes do build
+3. Em **Settings → Environment Variables**, adicione `IP_HASH_SALT` (texto aleatório) e `NEXT_PUBLIC_BASE_URL` com o domínio de produção (ex: `https://linkpulse.vercel.app`), para os links curtos sempre usarem esse domínio
+4. Em **Settings → Deployment Protection**, desligue a **Vercel Authentication**. Se ela ficar ligada, os endereços de cada deploy pedem login na Vercel para quem clica
+5. Faça o deploy. O script `vercel-build` aplica as migrations (pela conexão direta) antes do build
 
 Na Vercel, os headers `x-vercel-ip-*` trazem país, cidade, CEP, fuso e coordenadas em toda requisição. A API ipwho.is só completa o provedor de internet.
 
 ## Segurança
 
-- **Painel protegido por senha** (`/dashboard` e `/links/*`, via `src/proxy.ts` com HTTP Basic Auth). Os links curtos, a página de consentimento e a `/demo` continuam públicos. Sem `ADMIN_PASSWORD` em produção, o painel fica bloqueado (falha segura)
-- Só URLs `http(s)` podem ser encurtadas (bloqueia `javascript:` e afins)
+- Não há senha nem conta: o acesso a cada link é pela chave guardada no navegador de quem criou
+- O analytics, a exclusão e a lista de links só respondem com a chave certa (comparada em tempo constante)
+- Não existe endpoint que liste todos os links
+- Só URLs `http(s)` podem ser encurtadas (bloqueia `javascript:` e afins), e não é possível encurtar um link do próprio LinkPulse
 - O endpoint de GPS aceita um único envio por clique, em até 5 minutos
 
 ## API
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/api/links` | `{ url, slug?, title?, preciseGeo? }` → cria link (`409` se o alias existir) |
-| `GET` | `/api/links` | Lista links com total de cliques |
+| `POST` | `/api/links` | `{ url, slug?, title?, preciseGeo? }` → cria link e devolve `manageToken` (`409` alias em uso, `429` limite) |
+| `POST` | `/api/links/summary` | `{ links: [{ slug, token }] }` → dados e total de cliques dos links cuja chave confere |
+| `GET` | `/api/links/:slug/stats?range=7d\|30d\|90d` | Analytics completo. Exige `Authorization: Bearer <chave>` |
+| `DELETE` | `/api/links/:slug` | Exclui o link e seus cliques. Exige a chave |
 | `GET` | `/:slug` | Registra o clique e redireciona |
 | `GET` | `/api/demo` | Snapshot público da demo (contadores, pontos do mapa e cliques mascarados) |
 | `POST` | `/api/clicks/:id/precise` | `{ status: "granted", latitude, longitude, accuracy }` ou `{ status: "denied" \| "timeout" \| "unavailable" }` |
 
 ## Próximos passos
 
-- Contas de usuário (cada pessoa vê só os próprios links)
+- Contas opcionais, para sincronizar os links entre aparelhos sem precisar do link de acesso
 - Rate limiting na criação de links
 - QR code por link
 - Exportar cliques em CSV

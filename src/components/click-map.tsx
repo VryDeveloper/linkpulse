@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { Circle, CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { LatLngBoundsExpression } from "leaflet";
-import type { MapPoint } from "@/lib/stats";
+import type { MapPoint } from "@/lib/stats-shared";
 
 function FitBounds({ points }: { points: MapPoint[] }) {
   const map = useMap();

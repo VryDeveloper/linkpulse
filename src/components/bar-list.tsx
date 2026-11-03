@@ -1,4 +1,4 @@
-import type { Breakdown } from "@/lib/stats";
+import type { Breakdown } from "@/lib/stats-shared";
 import { Flag } from "./flag";
 
 /** Ranking horizontal: rótulo e valor em texto, a barra é só o reforço visual da magnitude. */

@@ -1,11 +1,14 @@
 import type { Click } from "@prisma/client";
-import { deviceLabel, TIMEZONE } from "@/lib/stats";
+import { deviceLabel, TIMEZONE } from "@/lib/stats-shared";
+
+/** Clique como chega pela API (datas viram texto no JSON). */
+export type ClickJSON = Omit<Click, "createdAt"> & { createdAt: string };
 import { Flag } from "./flag";
 
-const dateTime = (d: Date, timeZone: string) =>
-  d.toLocaleString("pt-BR", { timeZone, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const dateTime = (d: Date | string, timeZone: string) =>
+  new Date(d).toLocaleString("pt-BR", { timeZone, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-function localTimeOfVisitor(c: Click): string | null {
+function localTimeOfVisitor(c: ClickJSON): string | null {
   if (!c.timezone || c.timezone === TIMEZONE) return null;
   try {
     return `${dateTime(c.createdAt, c.timezone)} (${c.timezone})`;
@@ -16,7 +19,7 @@ function localTimeOfVisitor(c: Click): string | null {
 
 const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
-function deviceSummary(c: Click): string {
+function deviceSummary(c: ClickJSON): string {
   if (c.isBot) return "Bot / preview";
   const hardware = join(c.deviceVendor, c.deviceModel);
   return [deviceLabel(c.device), hardware || join(c.os, c.osVersion)].filter(Boolean).join(" · ");
@@ -38,7 +41,7 @@ function Field({ label, children, wide = false }: { label: string; children: Rea
   );
 }
 
-function ClickDetails({ c }: { c: Click }) {
+function ClickDetails({ c }: { c: ClickJSON }) {
   const coords = c.latitude !== null && c.longitude !== null ? `${c.latitude.toFixed(4)}, ${c.longitude.toFixed(4)}` : null;
   const gps =
     c.preciseLatitude !== null && c.preciseLongitude !== null
@@ -52,7 +55,7 @@ function ClickDetails({ c }: { c: Click }) {
         <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Data e hora (Brasília)">{dateTime(c.createdAt, TIMEZONE)}</Field>
           <Field label="Hora local de quem clicou">{localTimeOfVisitor(c) ?? (c.timezone ? "Mesmo fuso" : null)}</Field>
-          <Field label="UTC">{c.createdAt.toISOString().replace("T", " ").slice(0, 19)}</Field>
+          <Field label="UTC">{new Date(c.createdAt).toISOString().replace("T", " ").slice(0, 19)}</Field>
         </dl>
       </section>
 
@@ -131,7 +134,7 @@ function ClickDetails({ c }: { c: Click }) {
   );
 }
 
-export function RecentClicks({ clicks }: { clicks: Click[] }) {
+export function RecentClicks({ clicks }: { clicks: ClickJSON[] }) {
   return (
     <section className="card overflow-hidden">
       <div className="flex items-baseline justify-between px-4 pt-4">

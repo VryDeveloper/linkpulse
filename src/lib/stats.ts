@@ -1,26 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { countryName } from "./geo";
+import { deviceLabel, RANGES, TIMEZONE, type Breakdown, type MapPoint, type RangeKey } from "./stats-shared";
 
-export const TIMEZONE = process.env.APP_TIMEZONE ?? "America/Sao_Paulo";
-export const RANGES = { "7d": 7, "30d": 30, "90d": 90 } as const;
-export type RangeKey = keyof typeof RANGES;
-
-export interface Breakdown {
-  label: string;
-  count: number;
-  /** Quando presente, a UI mostra a bandeira do país ao lado do rótulo. */
-  countryCode?: string | null;
-}
-
-export interface MapPoint {
-  lat: number;
-  lng: number;
-  count: number;
-  label: string;
-  precise: boolean;
-  accuracy: number | null;
-}
+export * from "./stats-shared";
 
 /** Converte um Date para 'YYYY-MM-DD' no fuso do dashboard. */
 export function dayKey(date: Date, timeZone = TIMEZONE): string {
@@ -161,14 +144,3 @@ export async function getLinkStats(linkId: string, range: RangeKey) {
 
 export type LinkStats = Awaited<ReturnType<typeof getLinkStats>>;
 
-export function deviceLabel(device: string | null): string {
-  const labels: Record<string, string> = {
-    desktop: "Desktop",
-    mobile: "Celular",
-    tablet: "Tablet",
-    smarttv: "Smart TV",
-    console: "Console",
-    wearable: "Wearable",
-  };
-  return device ? (labels[device] ?? device) : "Desconhecido";
-}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { Breakdown } from "@/lib/stats";
+import type { Breakdown } from "@/lib/stats-shared";
 
 const fmtDay = (key: string, opts: Intl.DateTimeFormatOptions) =>
   new Date(`${key}T12:00:00`).toLocaleDateString("pt-BR", opts);

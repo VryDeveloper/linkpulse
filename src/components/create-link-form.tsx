@@ -1,11 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { saveLocalLink, shortUrlFor } from "@/lib/local-links";
 import { CopyButton } from "./copy-button";
 
-export function CreateLinkForm({ baseUrl }: { baseUrl: string }) {
-  const router = useRouter();
+export function CreateLinkForm() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -17,22 +16,29 @@ export function CreateLinkForm({ baseUrl }: { baseUrl: string }) {
     setPending(true);
     setError(null);
     setCreated(null);
-    const res = await fetch("/api/links", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: data.get("url"),
-        slug: data.get("slug") || undefined,
-        title: data.get("title") || undefined,
-        preciseGeo: data.get("preciseGeo") === "on",
-      }),
-    });
-    setPending(false);
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) return setError(json.error ?? "Erro ao criar link");
-    setCreated(`${baseUrl}/${json.slug}`);
-    form.reset();
-    router.refresh();
+    try {
+      const res = await fetch("/api/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: data.get("url"),
+          slug: data.get("slug") || undefined,
+          title: data.get("title") || undefined,
+          preciseGeo: data.get("preciseGeo") === "on",
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return setError(json.error ?? "Erro ao criar link");
+
+      const { manageToken, ...link } = json;
+      await saveLocalLink({ ...link, token: manageToken });
+      setCreated(shortUrlFor(link.slug));
+      form.reset();
+    } catch {
+      setError("Não foi possível salvar o link neste navegador. Verifique se o armazenamento do site está permitido.");
+    } finally {
+      setPending(false);
+    }
   }
 
   const input =
@@ -66,7 +72,7 @@ export function CreateLinkForm({ baseUrl }: { baseUrl: string }) {
       <label className="mt-3 flex items-start gap-2 text-sm text-[var(--text-secondary)]">
         <input type="checkbox" name="preciseGeo" className="mt-0.5 accent-[var(--accent)]" />
         <span>
-          <strong className="font-medium text-[var(--text)]">Modo localização precisa</strong> — mostra uma página
+          <strong className="font-medium text-[var(--text)]">Modo localização precisa</strong>: mostra uma página
           antes do redirecionamento pedindo permissão de GPS. Sem ele, a localização é estimada pelo IP (nível de
           cidade).
         </span>

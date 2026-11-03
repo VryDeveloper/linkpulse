@@ -9,7 +9,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
   const link = await prisma.link.findUnique({ where: { slug }, select: { id: true, slug: true, url: true, preciseGeo: true } });
 
   if (!link) {
-    return NextResponse.redirect(new URL(`/dashboard?notFound=${encodeURIComponent(slug)}`, req.url), 302);
+    return NextResponse.redirect(new URL(`/?notFound=${encodeURIComponent(slug)}`, req.url), 302);
   }
 
   const headers = new Headers(req.headers);

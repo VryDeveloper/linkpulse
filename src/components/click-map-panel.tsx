@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { MapPoint } from "@/lib/stats";
+import type { MapPoint } from "@/lib/stats-shared";
 import type { MapFocus } from "./click-map";
 
 // Leaflet acessa `window`, então o mapa só renderiza no cliente.

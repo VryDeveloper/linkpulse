@@ -16,6 +16,13 @@ model Link {
   preciseGeo Boolean  @default(false)
   createdAt  DateTime @default(now())
   clicks     Click[]
+
+  /// SHA-256 da chave secreta do dono. A chave em si só existe no navegador de quem criou o link.
+  manageTokenHash String?
+  /// Hash do IP de quem criou (para limitar criação em massa).
+  creatorIpHash   String?
+
+  @@index([creatorIpHash, createdAt])
 }
 
 model Click {
